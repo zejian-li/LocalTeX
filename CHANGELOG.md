@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.4 — macOS shutdown harness diagnostics
+
+- Launch the test compiler after CLI startup rather than concurrently with framework initialization.
+- Bypass system/environment proxy discovery for local readiness checks.
+- Capture staged startup messages and timed Python stack dumps on failures; retain shutdown assertions and deadlines.
+
 ## 0.1.0-beta.3 — shutdown CI synchronization
 
 - Wait for HTTP readiness before the shutdown test signals the server; record the owned compiler exit result rather than probing PID existence.

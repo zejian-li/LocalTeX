@@ -62,7 +62,8 @@ class BuildLifecycleTests(unittest.TestCase):
 
     @unittest.skipIf(sys.platform=='win32','SIGINT subprocess delivery differs on Windows; process cleanup is tested separately')
     def test_server_ctrl_c_terminates_registered_compiler(self):
-        self.check_server_shutdown()
+        with patch.object(urllib.request,'getproxies',side_effect=RuntimeError("Loopback readiness must not query system proxies")):
+            self.check_server_shutdown()
 
     @unittest.skipIf(sys.platform=='win32','Ignored POSIX SIGINT inheritance is not a Windows console scenario')
     def test_server_shutdown_after_slow_start_and_inherited_ignored_sigint(self):
@@ -75,20 +76,31 @@ class BuildLifecycleTests(unittest.TestCase):
             # Test the real CLI lifecycle, but record the owned Popen result so
             # PID reuse/zombie states cannot make a dead child look alive.
             wrapper=textwrap.dedent("""
-                import importlib.util,sys,threading,signal,time,json
+                import importlib.util,sys,threading,signal,time,json,faulthandler
+                faulthandler.enable()
+                faulthandler.dump_traceback_later(15,repeat=True)
+                print("shutdown harness: importing app",flush=True)
                 from pathlib import Path
                 spec=importlib.util.spec_from_file_location('app',SOURCE)
                 a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
+                print('shutdown harness: app imported',flush=True)
                 job={'id':'shutdown-test','state':'running','output':'','lock':threading.Lock(),'cancel':threading.Event(),'process':None}
                 def run():
                     result=a.streamed_command([sys.executable,'-c',CHILD],None,60,job)
                     Path(FINISHED).write_text(json.dumps({'returncode':result.returncode,'cancelled':job['cancel'].is_set(),'processCleared':job['process'] is None}))
                 job['thread']=threading.Thread(target=run,daemon=True)
-                a.JOBS[job['id']]=job;job['thread'].start()
+                a.JOBS[job['id']]=job
                 original_bind=a.bind_server
                 def bind(port):
+                    print('shutdown harness: binding listener',flush=True)
                     server=original_bind(port)
-                    Path(READY).write_text(str(server.server_port))
+                    original_serve=server.serve_forever
+                    def serve():
+                        print('shutdown harness: startup complete; launching compiler',flush=True)
+                        job['thread'].start()
+                        Path(READY).write_text(str(server.server_port))
+                        original_serve()
+                    server.serve_forever=serve
                     return server
                 a.bind_server=bind
                 original_capabilities=a.capabilities
@@ -98,7 +110,9 @@ class BuildLifecycleTests(unittest.TestCase):
                 a.capabilities=capabilities
                 if IGNORE:signal.signal(signal.SIGINT,signal.SIG_IGN)
                 sys.argv=['server.py','--port','0','--no-browser']
+                print('shutdown harness: entering main',flush=True)
                 a.main()
+                faulthandler.cancel_dump_traceback_later()
             """)
             for key,value in [('SOURCE',str(source)),('CHILD',child),('FINISHED',str(finished)),('READY',str(ready)),('DELAY',startup_delay),('IGNORE',ignore_sigint)]:
                 wrapper=wrapper.replace(key,repr(value))
@@ -107,12 +121,13 @@ class BuildLifecycleTests(unittest.TestCase):
             with output.open('wb') as log:
                 server=subprocess.Popen([sys.executable,'-u','-c',wrapper],stdout=log,stderr=subprocess.STDOUT,env=env)
                 try:
+                    opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
                     deadline=time.monotonic()+25
                     while True:
                         if server.poll() is not None:self.fail('Server exited during startup: '+output.read_text(errors='replace'))
                         if ready.exists() and marker.exists():
                             try:
-                                with urllib.request.urlopen('http://127.0.0.1:'+ready.read_text()+'/api/projects',timeout=.5) as response:
+                                with opener.open('http://127.0.0.1:'+ready.read_text()+'/api/projects',timeout=.5) as response:
                                     if response.status==200:break
                             except (OSError,ValueError):pass
                         if time.monotonic()>deadline:self.fail('Server did not become HTTP-ready: '+output.read_text(errors='replace'))
@@ -127,6 +142,9 @@ class BuildLifecycleTests(unittest.TestCase):
                     self.assertTrue(result['cancelled']);self.assertTrue(result['processCleared'])
                 finally:
                     if server.poll() is None:server.kill();server.wait()
+                    if pid is None and marker.exists():
+                        try:pid=int(marker.read_text())
+                        except (OSError,ValueError):pass
                     if pid:
                         try:app.os.killpg(pid,signal.SIGKILL)
                         except ProcessLookupError:pass
