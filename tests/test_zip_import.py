@@ -21,7 +21,14 @@ app=importlib.util.module_from_spec(spec);spec.loader.exec_module(app)
 def archive(items):
     out=io.BytesIO()
     with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
-        for name,content in items:z.writestr(name,content)
+        for name,content in items:
+            # ZipInfo normally rewrites OS separators on Windows. Write the
+            # supplied malicious name verbatim so the reader actually tests it.
+            if isinstance(name,zipfile.ZipInfo):info=name
+            else:
+                info=zipfile.ZipInfo();info.filename=info.orig_filename=name
+                info.compress_type=zipfile.ZIP_DEFLATED
+            z.writestr(info,content)
     out.seek(0)
     return out
 
@@ -36,12 +43,20 @@ def legacy_relative_to(path, parent):
 
 class ZipImportTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.base=Path(self.temp.name)
+        self.temp=tempfile.TemporaryDirectory();self.base=Path(self.temp.name).resolve()
         app.WORKSPACE=self.base/'projects';app.RECENT_FILE=self.base/'recents.json'
     def tearDown(self):self.temp.cleanup()
     def imported(self,items,name='Paper.zip'):
         key=app.import_project_zip(archive(items),name)
         return app.PROJECTS[key]
+    def test_archive_fixture_preserves_raw_backslash_names(self):
+        name='dir\\escape.tex'
+        # Exercise the Windows ZIP constructor behavior even on Linux.
+        with patch.object(zipfile.os,'sep','\\'):
+            with zipfile.ZipFile(archive([(name,b'x')])) as z:
+                self.assertEqual(z.infolist()[0].orig_filename,name)
+            with self.assertRaises(ValueError):self.imported([(name,b'x')])
+        self.assertFalse(app.WORKSPACE.exists())
     def test_portable_containment(self):
         for kind,root,other in [(PurePosixPath,'/project','/project-other'),(PureWindowsPath,'C:/project','D:/project')]:
             parent=kind(root)

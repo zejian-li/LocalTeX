@@ -13,7 +13,7 @@ app=importlib.util.module_from_spec(spec);spec.loader.exec_module(app)
 
 class SessionStabilityTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
+        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name).resolve()
         app.RECENT_FILE=self.root/'recent.json';self.handler=object.__new__(app.Handler)
     def tearDown(self):self.temp.cleanup()
     def test_stale_pdf_rejected_and_quoted_reverse_input(self):

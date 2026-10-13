@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.2 — Windows CI corrections
+
+- Canonicalize temporary test roots and compare executable file identity across Windows short/long path aliases.
+- Preserve malicious ZIP fixture names verbatim across operating systems, keeping unsafe-path rejection tests effective.
+- Preserve audited vendor bytes with Git attributes; improve hash-failure diagnostics without relaxing integrity checks.
+
 ## 0.1.0-beta.1 — release preparation
 
 - Cancel active compiler jobs and terminate their process trees during normal server shutdown.

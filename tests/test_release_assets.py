@@ -12,7 +12,11 @@ class ReleaseAssetsTests(unittest.TestCase):
         self.assertEqual(manifest['version'],'4.10.38')
         actual={p.relative_to(ROOT/'web/vendor').as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in (ROOT/'web/vendor').rglob('*') if p.is_file()}
-        self.assertEqual(actual,manifest['files'])
+        missing=set(manifest['files'])-set(actual);extra=set(actual)-set(manifest['files'])
+        changed=sorted(name for name in set(actual)&set(manifest['files']) if actual[name]!=manifest['files'][name])
+        self.assertFalse(missing or extra or changed,
+            'Vendor bytes differ: missing='+str(sorted(missing))+', extra='+str(sorted(extra))+', changed='+str(changed)+
+            '. Preserve web/vendor bytes with .gitattributes; do not normalize hashes.')
         for rel in ['LICENSE','NOTICE','THIRD_PARTY_NOTICES.md','web/vendor/LICENSE','web/vendor/cmaps/LICENSE',
                     'web/vendor/standard_fonts/LICENSE_FOXIT','web/vendor/standard_fonts/LICENSE_LIBERATION']:
             self.assertGreater((ROOT/rel).stat().st_size,100)

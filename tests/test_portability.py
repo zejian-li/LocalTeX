@@ -19,7 +19,7 @@ app=importlib.util.module_from_spec(spec);spec.loader.exec_module(app)
 
 class PortabilityTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
+        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name).resolve()
         app.RECENT_FILE=self.root/'recent.json'
         (self.root/'main.tex').write_bytes(b'first\nsecond\n')
         self.key=app.register_project(self.root)
@@ -57,7 +57,7 @@ class PortabilityTests(unittest.TestCase):
     def test_save_failure_and_conflict_preserve_original(self):
         p=self.root/'main.tex';original=p.read_bytes();real=app.os.replace
         def fail(src,dst):
-            if Path(dst)==p:raise OSError('simulated disk failure')
+            if Path(dst).resolve()==p.resolve():raise OSError('simulated disk failure')
             return real(src,dst)
         with patch.object(app.os,'replace',fail):self.assertEqual(self.save('replacement')[0],400)
         self.assertEqual(p.read_bytes(),original);self.assertFalse(list(self.root.glob('.localtex-*')))
@@ -114,7 +114,7 @@ class PortabilityTests(unittest.TestCase):
         tools=self.root/'custom tools';tools.mkdir();previous=app.TEX_DIR
         exe=tools/('pdflatex.exe' if app.os.name=='nt' else 'pdflatex');exe.write_bytes(b'fake executable');exe.chmod(0o755)
         try:
-            code,info=self.request('/api/tools',{'texPath':str(tools)});self.assertEqual(code,200);self.assertEqual(Path(info['tools']['pdflatex']),exe)
+            code,info=self.request('/api/tools',{'texPath':str(tools)});self.assertEqual(code,200);self.assertTrue(Path(info['tools']['pdflatex']).samefile(exe))
             self.assertEqual(json.loads((app.RECENT_FILE.parent/'tool-path.json').read_text())['texPath'],str(tools))
             self.assertEqual(self.request('/api/tools',{'texPath':str(tools/'missing')})[0],400);self.assertEqual(app.TEX_DIR,str(tools))
             app.BUILD_LOCK.acquire()

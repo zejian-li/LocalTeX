@@ -1,0 +1,9 @@
+# Keep original source/documentation line endings consistent across checkouts.
+* text=auto eol=lf
+# Upstream assets are audited byte-for-byte. Never rewrite their line endings.
+web/vendor/** -text
+*.png binary
+*.gif binary
+*.bcmap binary
+*.pfb binary
+*.ttf binary
