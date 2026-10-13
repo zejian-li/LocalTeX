@@ -40,6 +40,13 @@ class PortabilityTests(unittest.TestCase):
     def save(self,text):
         raw=(self.root/'main.tex').read_bytes()
         return self.request('/api/save',{'path':'main.tex','text':text,'version':hashlib.sha256(raw).hexdigest()})
+    def test_listener_binding_does_not_require_dns(self):
+        with patch.object(app.socket,'getfqdn',side_effect=AssertionError('Unexpected startup DNS lookup')):
+            server=app.bind_server(0)
+            try:
+                self.assertEqual(server.server_name,'127.0.0.1')
+                self.assertGreater(server.server_port,0)
+            finally:server.server_close()
     def test_format_and_permissions(self):
         p=self.root/'main.tex';raw=b'\xef\xbb\xbffirst\r\nsecond\r\n';p.write_bytes(raw);p.chmod(0o644)
         code,loaded=self.request('/api/file?path=main.tex');self.assertEqual(loaded['text'],'first\nsecond\n')

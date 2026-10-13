@@ -84,6 +84,8 @@ class BuildLifecycleTests(unittest.TestCase):
                 spec=importlib.util.spec_from_file_location('app',SOURCE)
                 a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
                 print('shutdown harness: app imported',flush=True)
+                def forbidden_dns(*args):raise AssertionError('Loopback CLI startup must not resolve hostnames')
+                a.socket.getfqdn=forbidden_dns
                 job={'id':'shutdown-test','state':'running','output':'','lock':threading.Lock(),'cancel':threading.Event(),'process':None}
                 def run():
                     result=a.streamed_command([sys.executable,'-c',CHILD],None,60,job)

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """LocalTeX: native local projects, selectable TeX targets and offline PDF viewing."""
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+from socketserver import TCPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote
 import hashlib
@@ -204,7 +205,11 @@ class LocalServer(ThreadingHTTPServer):
     def server_bind(self):
         if os.name == "nt" and hasattr(socket,"SO_EXCLUSIVEADDRUSE"):
             self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
-        super().server_bind()
+        # HTTPServer.server_bind performs getfqdn(), which can block in the OS
+        # resolver even for loopback (seen on macOS CI). No DNS is needed here.
+        TCPServer.server_bind(self)
+        self.server_name=self.server_address[0]
+        self.server_port=self.server_address[1]
 
 def bind_server(port):
     try:

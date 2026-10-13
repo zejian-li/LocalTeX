@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.5 — loopback startup without DNS
+
+- Bind the HTTP listener directly through TCPServer and assign the literal address/port, avoiding the blocking reverse-DNS lookup confirmed in macOS CI traces.
+- Verify direct binding and real CLI shutdown with hostname lookup forbidden.
+
 ## 0.1.0-beta.4 — macOS shutdown harness diagnostics
 
 - Launch the test compiler after CLI startup rather than concurrently with framework initialization.
