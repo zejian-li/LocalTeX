@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.3 — shutdown CI synchronization
+
+- Wait for HTTP readiness before the shutdown test signals the server; record the owned compiler exit result rather than probing PID existence.
+- Explicitly handle SIGINT as well as SIGTERM, including inherited ignored SIGINT from background launchers.
+- Cover slow startup and inherited ignored SIGINT without skipping POSIX shutdown verification.
+
 ## 0.1.0-beta.2 — Windows CI corrections
 
 - Canonicalize temporary test roots and compare executable file identity across Windows short/long path aliases.

@@ -10,6 +10,8 @@ import sys
 import tempfile
 import threading
 import time
+import textwrap
+import urllib.request
 import unittest
 from unittest.mock import Mock, patch
 
@@ -58,25 +60,76 @@ class BuildLifecycleTests(unittest.TestCase):
                     handler._write_json=write
                     with patch.object(app,'trash_operation',return_value={'ok':True}),patch.object(app.Handler,'compile',return_value={'ok':True,'target':'main.tex','diagnostics':[]}):handler.do_POST()
 
-    @unittest.skipIf(sys.platform=='win32','SIGINT delivery to a subprocess differs on Windows; cleanup is tested separately')
+    @unittest.skipIf(sys.platform=='win32','SIGINT subprocess delivery differs on Windows; process cleanup is tested separately')
     def test_server_ctrl_c_terminates_registered_compiler(self):
+        self.check_server_shutdown()
+
+    @unittest.skipIf(sys.platform=='win32','Ignored POSIX SIGINT inheritance is not a Windows console scenario')
+    def test_server_shutdown_after_slow_start_and_inherited_ignored_sigint(self):
+        self.check_server_shutdown(startup_delay=1,ignore_sigint=True)
+
+    def check_server_shutdown(self,startup_delay=0,ignore_sigint=False):
         with tempfile.TemporaryDirectory() as folder:
-            marker=Path(folder)/'pid';source=Path(app.__file__).resolve()
+            base=Path(folder).resolve();marker=base/'pid';finished=base/'finished.json';ready=base/'ready';source=Path(app.__file__).resolve()
             child='import os,time;from pathlib import Path;Path('+repr(str(marker))+').write_text(str(os.getpid()));time.sleep(60)'
-            wrapper="import importlib.util,sys,threading;spec=importlib.util.spec_from_file_location('app',"+repr(str(source))+");a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a);job={'id':'shutdown-test','state':'running','output':'','lock':threading.Lock(),'cancel':threading.Event(),'process':None};job['thread']=threading.Thread(target=lambda:a.streamed_command([sys.executable,'-c',"+repr(child)+"],None,60,job),daemon=True);a.JOBS[job['id']]=job;job['thread'].start();sys.argv=['server.py','--port','0','--no-browser'];a.main()"
-            server=subprocess.Popen([sys.executable,'-c',wrapper],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            pid=None
-            try:
-                for _ in range(50):
-                    if marker.exists():break
-                    time.sleep(.1)
-                pid=int(marker.read_text());time.sleep(.2);server.send_signal(signal.SIGINT);server.wait(timeout=12)
-                with self.assertRaises(ProcessLookupError):app.os.kill(pid,0)
-            finally:
-                if server.poll() is None:server.kill();server.wait()
-                if pid:
-                    try:app.os.killpg(pid,signal.SIGKILL)
-                    except ProcessLookupError:pass
+            # Test the real CLI lifecycle, but record the owned Popen result so
+            # PID reuse/zombie states cannot make a dead child look alive.
+            wrapper=textwrap.dedent("""
+                import importlib.util,sys,threading,signal,time,json
+                from pathlib import Path
+                spec=importlib.util.spec_from_file_location('app',SOURCE)
+                a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
+                job={'id':'shutdown-test','state':'running','output':'','lock':threading.Lock(),'cancel':threading.Event(),'process':None}
+                def run():
+                    result=a.streamed_command([sys.executable,'-c',CHILD],None,60,job)
+                    Path(FINISHED).write_text(json.dumps({'returncode':result.returncode,'cancelled':job['cancel'].is_set(),'processCleared':job['process'] is None}))
+                job['thread']=threading.Thread(target=run,daemon=True)
+                a.JOBS[job['id']]=job;job['thread'].start()
+                original_bind=a.bind_server
+                def bind(port):
+                    server=original_bind(port)
+                    Path(READY).write_text(str(server.server_port))
+                    return server
+                a.bind_server=bind
+                original_capabilities=a.capabilities
+                def capabilities(*args,**kwargs):
+                    time.sleep(DELAY)
+                    return original_capabilities(*args,**kwargs)
+                a.capabilities=capabilities
+                if IGNORE:signal.signal(signal.SIGINT,signal.SIG_IGN)
+                sys.argv=['server.py','--port','0','--no-browser']
+                a.main()
+            """)
+            for key,value in [('SOURCE',str(source)),('CHILD',child),('FINISHED',str(finished)),('READY',str(ready)),('DELAY',startup_delay),('IGNORE',ignore_sigint)]:
+                wrapper=wrapper.replace(key,repr(value))
+            env=app.os.environ.copy();env['LOCALTEX_RECENTS']=str(base/'recent.json')
+            output=base/'server-output.txt';pid=None
+            with output.open('wb') as log:
+                server=subprocess.Popen([sys.executable,'-u','-c',wrapper],stdout=log,stderr=subprocess.STDOUT,env=env)
+                try:
+                    deadline=time.monotonic()+25
+                    while True:
+                        if server.poll() is not None:self.fail('Server exited during startup: '+output.read_text(errors='replace'))
+                        if ready.exists() and marker.exists():
+                            try:
+                                with urllib.request.urlopen('http://127.0.0.1:'+ready.read_text()+'/api/projects',timeout=.5) as response:
+                                    if response.status==200:break
+                            except (OSError,ValueError):pass
+                        if time.monotonic()>deadline:self.fail('Server did not become HTTP-ready: '+output.read_text(errors='replace'))
+                        time.sleep(.05)
+                    pid=int(marker.read_text());server.send_signal(signal.SIGINT)
+                    try:server.wait(timeout=30)
+                    except subprocess.TimeoutExpired:self.fail('Server failed to stop: '+output.read_text(errors='replace'))
+                    self.assertEqual(server.returncode,0,output.read_text(errors='replace'))
+                    self.assertTrue(finished.exists(),'Compiler worker did not acknowledge cleanup: '+output.read_text(errors='replace'))
+                    result=json.loads(finished.read_text())
+                    self.assertLess(result['returncode'],0,'Compiler was not terminated by shutdown')
+                    self.assertTrue(result['cancelled']);self.assertTrue(result['processCleared'])
+                finally:
+                    if server.poll() is None:server.kill();server.wait()
+                    if pid:
+                        try:app.os.killpg(pid,signal.SIGKILL)
+                        except ProcessLookupError:pass
 
     def test_timeout_kills_compiler_and_child_and_can_run_again(self):
         with tempfile.TemporaryDirectory() as folder:

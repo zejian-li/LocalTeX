@@ -1490,10 +1490,13 @@ Settings and stopping:
                 except Exception as e:
                     print(f"Open {url} in your browser ({e}).")
             threading.Thread(target=launch_browser, daemon=True).start()
-        previous_term=None
+        previous_signals={}
         if threading.current_thread() is threading.main_thread():
             def stop_signal(signum,frame):raise KeyboardInterrupt
-            previous_term=signal.signal(signal.SIGTERM,stop_signal)
+            # Background launchers/CI shells may pass an ignored SIGINT. Own
+            # both normal stop signals explicitly once startup is complete.
+            for stop in (signal.SIGINT,signal.SIGTERM):
+                previous_signals[stop]=signal.signal(stop,stop_signal)
         try:
             SHUTTING_DOWN.clear()
             server.serve_forever()
@@ -1502,7 +1505,7 @@ Settings and stopping:
         finally:
             shutdown_builds()
             server.server_close()
-            if previous_term is not None:signal.signal(signal.SIGTERM,previous_term)
+            for stop,previous in previous_signals.items():signal.signal(stop,previous)
     except Exception as e:
         print(f"Cannot start LocalTeX: {e}")
         raise SystemExit(1)
