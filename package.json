@@ -1,0 +1,6 @@
+{
+  "name": "localtex-development-tests",
+  "private": true,
+  "scripts": {"test:browser": "node tests/browser_smoke.cjs", "test:stability": "node tests/browser_stability.cjs", "test:log": "node tests/browser_log.cjs", "test:storage": "node tests/browser_storage.cjs"},
+  "devDependencies": {"playwright": "1.62.1"}
+}

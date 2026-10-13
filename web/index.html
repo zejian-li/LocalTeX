@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalTeX</title>
+<link rel="stylesheet" href="/vendor/pdf_viewer.css">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <span id="storageNotice" class="hidden" role="status"></span>
+  <button id="sidebarBtn" title="Show or hide project files" aria-pressed="true">☰</button>
+  <strong class="brand">Local<span>TeX</span></strong>
+  <a class="projects-link" href="/projects">Projects</a>
+  <div id="project" class="project"></div><button id="openFileBtn" title="Choose a TeX file">Open file…</button><button id="openFolderBtn" title="Choose a project folder">Open folder…</button><button id="browseServerBtn" title="Browse files on the server without a native picker">Browse server…</button>
+  <label class="check"><input id="autosave" type="checkbox"> Autosave</label>
+  <button id="saveBtn" title="Ctrl+S">Save</button>
+  <button id="compileCurrent" class="primary" title="Compile the current source file (Ctrl+Enter)">Compile <kbd>Ctrl ↵</kbd></button>
+  <button id="cancelBuild" class="hidden">Cancel build</button><button id="historyBtn">History</button><button id="projectSearchBtn" title="Ctrl+Shift+F">Search project</button>
+  <button id="logBtn" title="Toggle compiler output">Log</button>
+  <button id="themeBtn" title="Toggle editor light/dark theme">Theme</button>
+  <button id="helpBtn" title="Keyboard shortcuts">?</button>
+</header>
+<div class="workspace">
+  <aside id="sidebar">
+    <div class="side-heading">PROJECT FILES <button id="refreshFiles" title="Refresh file list">↻</button></div>
+    <div class="file-actions" role="toolbar" aria-label="Project file actions"><button id="newFile">New file</button><button id="newFolder">New folder</button><button id="uploadBtn">Upload</button><button id="renameBtn">Move</button><button id="deleteBtn" disabled>Delete</button><button id="rootSelect">Project root</button><button id="undoDelete" disabled>Undo delete</button><button id="downloadFileBtn" disabled>Download file</button><button id="downloadProjectBtn">Download ZIP</button><button id="expandTree">Expand all folders</button><button id="foldTree">Fold all folders</button></div><input id="uploadFiles" type="file" multiple hidden>
+    <input id="fileFilter" type="search" placeholder="Filter files…" aria-label="Filter files">
+    <nav id="fileTree" aria-label="Project files"></nav>
+    <details id="outlinePanel" open><summary class="side-heading">OUTLINE <span class="muted">current file</span></summary>
+    <nav id="outline" aria-label="Current source outline"></nav></details>
+    <div id="setupNotice" class="setup-notice" role="status"></div>
+    <details id="buildPanel" open><summary class="side-heading">BUILD TARGET</summary>
+      <section class="build-bar">
+        <label for="target" class="visually-hidden">Build target</label>
+        <select id="target" aria-label="Build target"></select>
+        <button id="compileBtn" title="Compile the selected build target (Ctrl+Shift+Enter)">Build target</button>
+        <div class="build-extras"><button id="buildSettingsBtn">Settings</button><button id="cleanBuildBtn">Clean rebuild</button></div>
+        <span id="buildHint"></span>
+      </section>
+    </details>
+  </aside>
+  <main id="panes">
+    <section class="editor-pane">
+      <div class="pane-toolbar">
+        <select id="files" aria-label="Project files"></select>
+        <span id="dirty"></span>
+        <div class="spacer"></div>
+        <button id="newEditorView" title="Another view of this file (Ctrl+Alt+N)">New view</button>
+        <button id="sourceFindBtn" title="Find / replace in source (Ctrl+F)">Find</button>
+        <button id="syntaxBtn" aria-pressed="true" title="Toggle source syntax colors">Syntax</button>
+        <button id="wrapBtn" aria-pressed="true" title="Soft-wrap long lines without changing the file">Wrap</button>
+        <button id="fontDown" title="Smaller source text">A−</button>
+        <button id="fontUp" title="Larger source text">A+</button>
+      </div>
+      <div id="editorTabs" class="editor-tabs" role="tablist" aria-label="Editor views"></div>
+      <div id="sourceFindBar" class="find-bar hidden">
+        <input id="sourceQuery" type="search" placeholder="Find in source" aria-label="Find in source">
+        <button id="sourceCase" class="case-toggle" type="button" aria-pressed="false" title="Match case" aria-label="Match case">Aa</button><span id="sourceMatches" aria-live="polite"></span>
+        <button id="sourcePrev" title="Previous match">↑</button><button id="sourceNext" title="Next match">↓</button>
+        <input id="replacement" placeholder="Replace with" aria-label="Replacement text">
+        <button id="replaceOne">Replace</button><button id="replaceAll">All</button>
+        <button id="sourceFindClose" aria-label="Close source search">×</button>
+      </div>
+      <div class="source-area">
+        <div id="gutter" aria-hidden="true"><div id="lineNumbers">1</div></div>
+        <div class="editor-stack"><div id="multiCursorLayer" aria-hidden="true"></div><div id="diagnosticLayer" aria-hidden="true"></div><div id="highlightViewport" aria-hidden="true"><pre id="highlight"></pre></div>
+        <textarea id="editor" readonly spellcheck="true" autocomplete="off" autocapitalize="off" wrap="soft"
+          aria-label="LaTeX source editor"></textarea></div>
+      </div>
+      <div class="pane-footer"><button id="bracketStatus" title="Jump to matching bracket"></button><span id="multiStatus"></span><span id="cursorStatus">Ln 1, Col 1</span></div>
+    </section>
+    <div id="syncRail" class="splitter-rail">
+    <div id="splitter" class="splitter" role="separator" tabindex="0" aria-label="Resize source and PDF panes"
+      aria-orientation="vertical" aria-valuemin="20" aria-valuemax="80" aria-valuenow="50"
+      title="Drag to resize · double-click to reset"></div>
+      <div class="sync-controls" role="group" aria-label="Sync source and PDF">
+        <button id="sourceSyncBtn" title="Sync source cursor to PDF" aria-label="Sync source cursor to PDF"><span aria-hidden="true">→</span></button>
+        <button id="pdfSyncBtn" title="Sync the visible PDF page center to source" aria-label="Sync visible PDF to source"><span aria-hidden="true">←</span></button>
+      </div>
+    </div>
+    <section class="pdf-pane">
+      <div class="pane-toolbar pdf-toolbar">
+        <button id="prevPage" aria-label="Previous page">‹</button>
+        <input id="pageNumber" type="number" min="1" value="1" aria-label="PDF page number">
+        <span id="pageCount">/ 0</span><button id="nextPage" aria-label="Next page">›</button>
+        <span class="toolbar-rule"></span>
+        <button id="zoomOut" aria-label="Zoom PDF out">−</button>
+        <select id="zoom" aria-label="PDF zoom">
+          <option value="page-width">Fit width</option><option value="page-fit">Fit page</option>
+          <option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option>
+          <option value="1.25">125%</option><option value="1.5">150%</option>
+          <option value="2">200%</option><option value="3">300%</option><option value="4">400%</option>
+          <option id="customZoom" value="custom" hidden>Custom</option>
+        </select>
+        <button id="zoomIn" aria-label="Zoom PDF in">+</button>
+        <div class="spacer"></div>
+        <button id="pdfFindBtn" title="Search PDF (Ctrl+F with PDF focused)">Find</button>
+        <button id="pdfDarkBtn" title="Invert PDF colors" aria-pressed="false">Night</button>
+        <button id="reloadPdfBtn" title="Reload PDF">↻</button>
+        <a id="openPdfTab" class="button" href="#" target="_blank" rel="noopener" title="Open PDF in a separate tab">↗</a>
+      </div>
+      <div id="pdfFindBar" class="find-bar hidden">
+        <input id="pdfQuery" type="search" placeholder="Find in PDF" aria-label="Find in PDF">
+        <button id="pdfCase" class="case-toggle" type="button" aria-pressed="false" title="Match case" aria-label="Match case">Aa</button>
+        <button id="pdfPrev" title="Previous PDF match">↑</button><button id="pdfNext" title="Next PDF match">↓</button>
+        <span id="pdfMatches" aria-live="polite"></span>
+        <button id="pdfFindClose" aria-label="Close PDF search">×</button>
+      </div>
+      <div id="pdfPath" class="pdf-path">No PDF selected</div>
+      <div class="pdf-stage">
+        <div id="pdf" tabindex="0" aria-label="Compiled PDF; double-click to go to source"><div id="viewer" class="pdfViewer"></div></div>
+        <div id="pdfEmpty">Recompile to preview your document.</div>
+      </div>
+      <div class="pane-footer"><span id="zoomStatus"></span><span>Pinch to zoom · double-click → source</span></div>
+    </section>
+  </main>
+</div>
+<dialog id="assetPreview" class="asset-preview">
+  <div class="asset-heading"><strong id="assetName"></strong><button id="assetDownload">Download</button><button id="assetClose" aria-label="Close file preview">×</button></div>
+  <div id="assetZoomBar" class="asset-zoom-bar"><button id="assetZoomOut" aria-label="Zoom image out">−</button><span id="assetZoomStatus"></span><button id="assetZoomIn" aria-label="Zoom image in">+</button><button id="assetFit">Fit</button><button id="assetActual">100%</button></div>
+  <p id="assetMessage" role="status"></p><div id="assetViewport" class="asset-image-wrap"><div id="assetCanvas"><img id="assetImage" alt=""></div></div>
+</dialog>
+<section id="consolePanel" class="console-panel hidden" aria-label="Build diagnostics">
+  <div class="console-head"><button id="showProblems" aria-pressed="true">Problems</button><button id="showRawLog" aria-pressed="false">Raw log</button>
+  <button id="logFindBtn" title="Find in raw log (Ctrl+F)">Find</button>
+  <div id="logFindBar" class="log-find hidden" role="search" aria-label="Search raw log">
+    <input id="logQuery" type="search" placeholder="Find in log" aria-label="Find in log">
+    <button id="logCase" class="case-toggle" aria-pressed="false" title="Match case" aria-label="Match case in log">Aa</button>
+    <span id="logMatches" role="status"></span>
+    <button id="logPrev" title="Previous log match (Shift+Enter)" aria-label="Previous log match">↑</button><button id="logNext" title="Next log match (Enter)" aria-label="Next log match">↓</button>
+    <button id="logFindClose" title="Close log search (Escape)" aria-label="Close log search">×</button>
+  </div>
+  <span id="problemSummary"></span><select id="problemFilter" aria-label="Filter problems"><option value="all">All</option><option value="error">Errors</option><option value="warning">Warnings</option></select>
+  <button id="closeConsole">Close</button></div>
+  <div id="problemList" role="list" aria-live="polite"></div>
+  <pre id="console" class="hidden" tabindex="0" aria-label="Raw build log">No compilation in this session yet.</pre>
+</section>
+<footer><span id="status" role="status">Opening project…</span><span id="saveStatus"></span></footer>
+<div id="sourceMirror" aria-hidden="true"></div>
+<dialog id="createDialog">
+  <form id="createForm">
+    <h2 id="createTitle">New file</h2>
+    <label for="createPath">Path relative to the project folder</label>
+    <input id="createPath" required placeholder="figures/diagram.tex" autocomplete="off">
+    <p>New files start empty. Create the parent folder first.<br>Existing files are never overwritten.</p>
+    <p id="createError" role="alert"></p>
+    <div class="dialog-actions"><button type="button" id="createCancel">Cancel</button><button type="submit" class="primary">Create</button></div>
+  </form>
+</dialog>
+<dialog id="deleteDialog">
+  <h2>Delete selected item?</h2><p id="deleteDescription"></p>
+  <p>Opened drafts are saved first. The item moves to local trash and can be restored with Undo delete.</p>
+  <p id="deleteError" role="alert"></p>
+  <div class="dialog-actions"><button id="deleteCancel">Cancel</button><button id="deleteConfirm" class="primary">Move to trash</button></div>
+</dialog>
+<dialog id="help">
+  <h2>Make yourself at home</h2>
+  <dl>
+    <dt>Ctrl+Enter</dt><dd>Compile the current source file, refresh and sync</dd>
+    <dt>Ctrl+Shift+F</dt><dd>Search across the project; switch to citations, labels or commands</dd>
+    <dt>F12 / Alt+click</dt><dd>Follow an input, reference, citation or custom command</dd>
+    <dt>Alt+Shift+D</dt><dd>Duplicate the current or selected source lines</dd>
+    <dt>Alt+Up / Down</dt><dd>Move current or selected lines</dd>
+    <dt>Ctrl+click</dt><dd>Add a source cursor; Escape returns to one cursor</dd>
+    <dt>Ctrl+D</dt><dd>Select the word, then add its next occurrence</dd>
+    <dt>Ctrl+Alt+Left / Right (or Alt+PageUp / PageDown)</dt><dd>Switch editor view tabs in either direction</dd>
+    <dt>Ctrl+Alt+N</dt><dd>Open another view of the current source file</dd>
+    <dt>Ctrl+S</dt><dd>Save all opened drafts</dd>
+    <dt>Sync arrows</dt><dd>Source cursor → PDF; visible PDF page center → source</dd>
+    <dt>Double-click</dt><dd>Select a source word; on the PDF, sync to source</dd>
+    <dt>Ctrl+wheel / trackpad pinch</dt><dd>Zoom only the PDF when pointing over it</dd>
+    <dt>Ctrl+F</dt><dd>Search the source or PDF pane you last used, or the focused raw log; Enter / Shift+Enter cycles matches</dd>
+    <dt>Ctrl+/</dt><dd>Comment or uncomment selected source lines</dd>
+    <dt>Ctrl+Shift+Enter</dt><dd>Compile the sidebar build target</dd>
+    <dt>Ctrl+Space</dt><dd>Show completions; arrows select, Enter / Tab accepts, Escape dismisses</dd>
+    <dt>Enter</dt><dd>Continue indentation; environment completions insert the matching end</dd>
+    <dt>Tab / Shift+Tab</dt><dd>Indent / unindent source lines</dd>
+    <dt>Drag divider</dt><dd>Resize panes; double-click resets to 50/50</dd>
+  </dl>
+  <p>Choose a build target independently of the source file being edited.<br>Soft wrapping changes only the display. Autosave is optional.<br>
+  Hold Shift while double-clicking PDF text to select a word without syncing.</p>
+  <button id="helpClose" class="primary">Back to writing</button>
+</dialog>
+<script type="module" src="/app.js"></script>
+<dialog id="buildSettingsDialog" class="wide-dialog"><h2 id="settingsTitle">Build settings</h2>
+<label>Engine <select id="engineChoice"><option value="pdflatex">pdfLaTeX</option><option value="xelatex">XeLaTeX</option><option value="lualatex">LuaLaTeX</option></select></label>
+<label><input id="stopOnError" type="checkbox"> Stop on first error</label>
+<label>Timeout (seconds) <input id="buildTimeout" type="number" min="10" max="1800"></label>
+<h3>Build these standalone targets first</h3><div id="dependencies"></div><p>Dependencies are built recursively, in the order shown. Included chapters should not be selected here.</p>
+<p id="settingsError" role="alert"></p><button id="settingsSave" class="primary">Save settings</button><button id="settingsClose">Close</button></dialog>
+<dialog id="historyDialog" class="wide-dialog"><h2>Draft recovery and snapshots</h2>
+<p>Restoring creates an unsaved draft. Your disk file changes only when you save.</p><div class="history-layout"><div id="historyList"></div><div class="history-detail">
+<p id="recoveryLabel"></p><div class="compare-panels"><label>Current disk file<textarea id="currentPreview" readonly></textarea></label><label>Selected version<textarea id="recoveryPreview" readonly></textarea></label></div>
+<label id="recoveryConflict" class="hidden"><input id="recoveryUseDisk" type="checkbox"> Disk file has changed. After comparing, use its current version as the save base.</label>
+</div></div><div class="dialog-actions"><button id="downloadVersion" disabled>Download selected</button><button id="restoreDraft" class="primary" disabled>Restore to draft</button><button id="historyClose">Close</button></div></dialog>
+<dialog id="renameDialog"><h2>Rename or move</h2><p id="renameSource"></p><label>New project-relative path <input id="renamePath"></label><p>Existing destinations are never overwritten. TeX references are not rewritten.</p><p id="renameError"></p><button id="renameSave" class="primary">Move</button><button id="renameClose">Cancel</button></dialog>
+<dialog id="projectSearchDialog" class="wide-dialog"><h2>Project search and navigation</h2>
+<div class="navigation-controls"><input id="projectQuery" type="search" placeholder="Search all source files or bibliography titles/authors"><button id="projectCase" class="case-toggle" aria-pressed="false">Aa</button><select id="navigationMode"><option value="text">Text</option><option value="citation">Citations</option><option value="label">Labels</option><option value="command">Commands</option></select></div>
+<p id="projectSearchStatus"></p><div id="projectResults"></div><button id="projectSearchClose">Close</button></dialog>
+<div id="completionPopup" class="completion-popup hidden" role="listbox" aria-label="Source completions"></div>
+</body></html>

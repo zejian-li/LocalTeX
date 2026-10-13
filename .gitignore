@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+node_modules/
+test-results/
+playwright-report/
+
+.localtex/
+.localtex-trash/
+examples/demo/*.aux
+examples/demo/*.log
+examples/demo/*.pdf
+examples/demo/*.synctex.gz
+examples/demo/*.fls
+examples/demo/*.fdb_latexmk

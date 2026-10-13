@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Projects — LocalTeX</title><link rel="stylesheet" href="/style.css"></head>
+<body class="home-page">
+<header><strong>LocalTeX</strong><span>Local projects</span></header>
+<main class="project-home">
+<h1>Your projects</h1>
+<div id="setupNotice" class="setup-notice" role="status"></div>
+<p>Open a TeX file or a project folder. Each editor tab has its own project.</p>
+<div class="home-actions"><button id="homeOpenFile" class="primary">Open file</button><button id="homeOpenFolder">Open folder</button><button id="homeBrowseServer">Browse server…</button><button id="homeImportZip">Upload project ZIP</button><input id="projectZip" type="file" accept=".zip,application/zip" hidden></div>
+<p id="homeStatus" role="status"></p>
+<p id="importDestination" class="muted"></p>
+<p class="muted">Browse server works remotely and without a native picker. Create a folder and TeX file there to start a new project.</p>
+<h2>Recently opened</h2>
+<div id="recentProjects" class="recent-projects" aria-live="polite"></div>
+</main>
+<script type="module" src="/home.js"></script>
+</body></html>

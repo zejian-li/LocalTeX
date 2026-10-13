@@ -1,0 +1,48 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage[margin=25mm]{geometry}
+\title{Local writing, familiar workflow}
+\author{LocalTeX demo}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{A browser workspace for local LaTeX}
+Keep your sources on your own computer and compile with your
+existing TeX installation. LocalTeX brings the source, project
+files and PDF together in a browser, without an account or
+cloud project upload.
+
+\section{Write, preview, navigate}
+Search your source, follow references, and use completion for
+commands and citation keys. Independent views let you work on
+several parts of the same file while sharing one draft.
+
+The editor uses a native browser text field, making it a
+practical home for grammar tools as well as LaTeX. Grammarly
+is optional and has its own service and privacy requirements.
+
+\subsection{Equations stay close to the explanation}
+A driven mode can be written as
+\begin{equation}
+  \hat{H} = -\Delta \hat{a}^{\dagger}\hat{a}
+  + \frac{U}{2}\hat{a}^{\dagger 2}\hat{a}^{2}
+  + F\bigl(\hat{a}^{\dagger}+\hat{a}\bigr).
+  \label{eq:mode}
+\end{equation}
+Select a source location and use the sync arrow to find its
+PDF position. Double-click PDF text to return to its source.
+
+\input{sections/notes}
+
+\section{A workflow you control}
+Compile the current document with Ctrl+Enter. Use
+Ctrl+Shift+Enter for a separate build target when editing
+an included chapter. Inspect compiler diagnostics or search
+the raw log when something needs attention.
+
+Save frequently. Disk history and browser draft recovery
+provide extra protection, but regular backups still matter.
+\end{document}

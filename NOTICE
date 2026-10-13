@@ -1,0 +1,8 @@
+LocalTeX
+Copyright 2026 LocalTeX contributors
+
+LocalTeX includes unmodified portions of PDF.js 4.10.38.
+Copyright 2024 Mozilla Foundation. Licensed under Apache-2.0.
+
+Bundled Adobe CMaps and PDFium/Liberation fonts retain their own licenses.
+See THIRD_PARTY_NOTICES.md and the license files beside those assets.
